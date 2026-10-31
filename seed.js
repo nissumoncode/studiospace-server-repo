@@ -1,0 +1,370 @@
+import { MongoClient } from "mongodb";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+const client = new MongoClient(process.env.MONGODB_URI);
+
+async function seedStudios() {
+  try {
+    await client.connect();
+    console.log("MongoDB Connected!");
+
+    const db = client.db("StudioSpace");
+    const studiosCollection = db.collection("studios");
+
+    const studios = [
+      {
+        title: "Modern Photography Studio",
+        category: "Photo Studios",
+
+        hourlyRate: 50,
+        securityDeposit: 100,
+        maxCapacity: 8,
+
+        location: "Dhaka, Bangladesh",
+        address: "House 12, Road 5, Dhanmondi, Dhaka",
+
+        image: "https://images.unsplash.com/photo-1497366754035-f200968a6e72",
+
+        imageGallery: [
+          "https://images.unsplash.com/photo-1497366754035-f200968a6e72",
+          "https://images.unsplash.com/photo-1497366216548-37526070297c",
+          "https://images.unsplash.com/photo-1497366811353-6870744d04b2",
+        ],
+
+        overview:
+          "A modern professional photography studio with premium lighting, spacious interiors, and a creative environment.",
+
+        amenities: [
+          "Professional Lighting",
+          "Photography Backdrop",
+          "Air Conditioning",
+          "Wi-Fi",
+          "Changing Room",
+          "Parking",
+        ],
+
+        availability: {
+          days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+          startTime: "09:00",
+          endTime: "21:00",
+        },
+
+        hostId: "demo-host-001",
+        hostName: "Studio Owner",
+        hostEmail: "owner@example.com",
+
+        rating: 4.8,
+        totalReviews: 24,
+
+        status: "active",
+
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        title: "Creative Sound Stage",
+        category: "Sound Stages",
+        hourlyRate: 80,
+        securityDeposit: 150,
+        maxCapacity: 15,
+        location: "Dhaka, Bangladesh",
+        address: "Banani, Dhaka",
+        image: "https://images.unsplash.com/photo-1497366216548-37526070297c",
+        imageGallery: [
+          "https://images.unsplash.com/photo-1497366216548-37526070297c",
+          "https://images.unsplash.com/photo-1497366754035-f200968a6e72",
+        ],
+        overview: "A professional sound stage for film and video production.",
+        amenities: ["Soundproofing", "Lighting", "AC", "Parking"],
+        availability: {
+          days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+          startTime: "09:00",
+          endTime: "22:00",
+        },
+        hostId: "demo-host-002",
+        hostName: "Creative Space",
+        hostEmail: "creative@example.com",
+        rating: 4.9,
+        totalReviews: 32,
+        status: "active",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        title: "Premium Podcast Room",
+        category: "Podcast Rooms",
+        hourlyRate: 35,
+        securityDeposit: 70,
+        maxCapacity: 5,
+        location: "Dhaka, Bangladesh",
+        address: "Uttara, Dhaka",
+        image: "https://images.unsplash.com/photo-1590602847861-f357a9332bbc",
+        imageGallery: [
+          "https://images.unsplash.com/photo-1590602847861-f357a9332bbc",
+          "https://images.unsplash.com/photo-1478737270239-2f02b77fc618",
+        ],
+        overview:
+          "A comfortable podcast room with professional recording equipment.",
+        amenities: ["Microphones", "Soundproofing", "Headphones", "Wi-Fi"],
+        availability: {
+          days: [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+          ],
+          startTime: "10:00",
+          endTime: "21:00",
+        },
+        hostId: "demo-host-003",
+        hostName: "Podcast Hub",
+        hostEmail: "podcast@example.com",
+        rating: 4.7,
+        totalReviews: 18,
+        status: "active",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        title: "Professional Music Suite",
+        category: "Music Suites",
+        hourlyRate: 60,
+        securityDeposit: 120,
+        maxCapacity: 7,
+        location: "Chattogram, Bangladesh",
+        address: "GEC Circle, Chattogram",
+        image: "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04",
+        imageGallery: [
+          "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04",
+          "https://images.unsplash.com/photo-1516280440614-37939bbacd81",
+        ],
+        overview: "A creative music production suite for recording and mixing.",
+        amenities: ["Mixing Console", "Speakers", "Microphones", "AC"],
+        availability: {
+          days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+          startTime: "09:00",
+          endTime: "23:00",
+        },
+        hostId: "demo-host-004",
+        hostName: "Music House",
+        hostEmail: "music@example.com",
+        rating: 4.8,
+        totalReviews: 21,
+        status: "active",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        title: "Artistic Workshop Space",
+        category: "Art Workshops",
+        hourlyRate: 40,
+        securityDeposit: 80,
+        maxCapacity: 12,
+        location: "Dhaka, Bangladesh",
+        address: "Dhanmondi, Dhaka",
+        image: "https://images.unsplash.com/photo-1455390582262-044cdead277a",
+        imageGallery: [
+          "https://images.unsplash.com/photo-1455390582262-044cdead277a",
+          "https://images.unsplash.com/photo-1513364776144-60967b0f800f",
+        ],
+        overview:
+          "An inspiring workshop space for painting and creative activities.",
+        amenities: ["Art Supplies", "Large Tables", "Natural Light", "Wi-Fi"],
+        availability: {
+          days: [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+          ],
+          startTime: "09:00",
+          endTime: "20:00",
+        },
+        hostId: "demo-host-005",
+        hostName: "Art Studio",
+        hostEmail: "art@example.com",
+        rating: 4.6,
+        totalReviews: 15,
+        status: "active",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        title: "Luxury Portrait Studio",
+        category: "Photo Studios",
+        hourlyRate: 55,
+        securityDeposit: 100,
+        maxCapacity: 6,
+        location: "Sylhet, Bangladesh",
+        address: "Zindabazar, Sylhet",
+        image: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32",
+        imageGallery: [
+          "https://images.unsplash.com/photo-1516035069371-29a1b244cc32",
+          "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee",
+        ],
+        overview:
+          "A stylish portrait photography studio with premium backdrops.",
+        amenities: ["Lighting", "Backdrops", "AC", "Changing Room"],
+        availability: {
+          days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+          startTime: "09:00",
+          endTime: "21:00",
+        },
+        hostId: "demo-host-006",
+        hostName: "Portrait House",
+        hostEmail: "portrait@example.com",
+        rating: 4.9,
+        totalReviews: 28,
+        status: "active",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        title: "Indoor Film Production Stage",
+        category: "Sound Stages",
+        hourlyRate: 90,
+        securityDeposit: 200,
+        maxCapacity: 20,
+        location: "Dhaka, Bangladesh",
+        address: "Tejgaon, Dhaka",
+        image: "https://images.unsplash.com/photo-1485846234645-a62644f84728",
+        imageGallery: [
+          "https://images.unsplash.com/photo-1485846234645-a62644f84728",
+          "https://images.unsplash.com/photo-1478720568477-152d9b164e26",
+        ],
+        overview: "A spacious indoor stage for professional video production.",
+        amenities: ["Lighting Rig", "Green Screen", "AC", "Parking"],
+        availability: {
+          days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+          startTime: "08:00",
+          endTime: "22:00",
+        },
+        hostId: "demo-host-007",
+        hostName: "Film Production Hub",
+        hostEmail: "film@example.com",
+        rating: 4.7,
+        totalReviews: 19,
+        status: "active",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        title: "Compact Podcast Studio",
+        category: "Podcast Rooms",
+        hourlyRate: 30,
+        securityDeposit: 60,
+        maxCapacity: 4,
+        location: "Rajshahi, Bangladesh",
+        address: "Shaheb Bazar, Rajshahi",
+        image: "https://images.unsplash.com/photo-1478737270239-2f02b77fc618",
+        imageGallery: [
+          "https://images.unsplash.com/photo-1478737270239-2f02b77fc618",
+          "https://images.unsplash.com/photo-1590602847861-f357a9332bbc",
+        ],
+        overview: "A compact recording room for interviews and podcasts.",
+        amenities: ["Microphones", "Headphones", "Soundproofing", "Wi-Fi"],
+        availability: {
+          days: [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+          ],
+          startTime: "10:00",
+          endTime: "20:00",
+        },
+        hostId: "demo-host-008",
+        hostName: "Podcast Corner",
+        hostEmail: "corner@example.com",
+        rating: 4.5,
+        totalReviews: 12,
+        status: "active",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        title: "Modern Recording Suite",
+        category: "Music Suites",
+        hourlyRate: 70,
+        securityDeposit: 130,
+        maxCapacity: 8,
+        location: "Dhaka, Bangladesh",
+        address: "Gulshan, Dhaka",
+        image: "https://images.unsplash.com/photo-1516280440614-37939bbacd81",
+        imageGallery: [
+          "https://images.unsplash.com/photo-1516280440614-37939bbacd81",
+          "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04",
+        ],
+        overview: "A modern recording suite for musicians and producers.",
+        amenities: ["Recording Equipment", "Mixing Console", "Speakers", "AC"],
+        availability: {
+          days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+          startTime: "09:00",
+          endTime: "23:00",
+        },
+        hostId: "demo-host-009",
+        hostName: "Sound Lab",
+        hostEmail: "sound@example.com",
+        rating: 4.9,
+        totalReviews: 35,
+        status: "active",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        title: "Creative Art Workshop",
+        category: "Art Workshops",
+        hourlyRate: 45,
+        securityDeposit: 90,
+        maxCapacity: 10,
+        location: "Chattogram, Bangladesh",
+        address: "Panchlaish, Chattogram",
+        image: "https://images.unsplash.com/photo-1513364776144-60967b0f800f",
+        imageGallery: [
+          "https://images.unsplash.com/photo-1513364776144-60967b0f800f",
+          "https://images.unsplash.com/photo-1455390582262-044cdead277a",
+        ],
+        overview:
+          "A bright and creative workshop for artists and small groups.",
+        amenities: ["Art Supplies", "Natural Light", "Large Tables", "Wi-Fi"],
+        availability: {
+          days: [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+          ],
+          startTime: "09:00",
+          endTime: "20:00",
+        },
+        hostId: "demo-host-010",
+        hostName: "Creative Arts",
+        hostEmail: "arts@example.com",
+        rating: 4.8,
+        totalReviews: 22,
+        status: "active",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ];
+    const result = await studiosCollection.insertMany(studios);
+
+    console.log(`${result.insertedCount} studios inserted successfully!`);
+  } catch (error) {
+    console.error(error);
+  } finally {
+    await client.close();
+  }
+}
+
+seedStudios();
