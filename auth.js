@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth";
+import { jwt } from "better-auth/plugins";
 import { mongodbAdapter } from "@better-auth/mongo-adapter";
 
 export const createAuth = (db) =>
@@ -27,4 +28,16 @@ export const createAuth = (db) =>
         trustedProviders: ["google"],
       },
     },
+    session: {
+      cookieCache: {
+        enabled: true,
+        strategy: "jwt",
+        maxAge: 5 * 60,
+      },
+    },
+    plugins: [
+      jwt({
+        sessionCookieCache: true,
+      }),
+    ],
   });
