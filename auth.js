@@ -28,16 +28,6 @@ export const createAuth = (db) =>
         trustedProviders: ["google"],
       },
     },
-    session: {
-      cookieCache: {
-        enabled: true,
-        strategy: "jwt",
-        maxAge: 5 * 60,
-      },
-    },
-    plugins: [
-      jwt({
-        sessionCookieCache: true,
-      }),
-    ],
+
+    plugins: [jwt()],
   });
