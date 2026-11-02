@@ -28,6 +28,11 @@ export const createAuth = (db) =>
         trustedProviders: ["google"],
       },
     },
-
+    advanced: {
+      defaultCookieAttributes: {
+        sameSite: "none",
+        secure: true,
+      },
+    },
     plugins: [jwt()],
   });
