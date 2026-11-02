@@ -44,28 +44,86 @@ const verifyJwtCookie = async (req, res, next) => {
   try {
     const cookies = req.headers.cookie || "";
 
-    const sessionCookie = cookies
+    const jwtCookie = cookies
       .split(";")
-      .find((item) => item.trim().startsWith("better-auth.session_data="));
+      .find((item) => item.trim().startsWith("studiospace_jwt="));
 
-    if (!sessionCookie) {
+    if (!jwtCookie) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
     const token = decodeURIComponent(
-      sessionCookie.trim().slice("better-auth.session_data=".length),
+      jwtCookie.trim().slice("studiospace_jwt=".length),
     );
 
-    await jwtVerify(token, JWKS);
+    await jwtVerify(token, JWKS, {
+      issuer: process.env.BETTER_AUTH_URL,
+      audience: process.env.BETTER_AUTH_URL,
+    });
 
     next();
   } catch (error) {
-    return res.status(401).json({ message: "Invalid or expired JWT" });
+    console.error("JWT verification error:", error);
+    return res.status(401).json({
+      message: "Invalid or expired JWT",
+    });
   }
 };
 
-app.all("/api/auth/{*any}", toNodeHandler(auth));
+app.post("/api/auth/set-jwt-cookie", async (req, res) => {
+  try {
+    if (req.headers.origin !== process.env.CLIENT_URL) {
+      return res.status(403).json({
+        success: false,
+        message: "Forbidden origin",
+      });
+    }
+
+    const headers = fromNodeHeaders(req.headers);
+
+    const session = await auth.api.getSession({ headers });
+
+    if (!session) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const { token } = await auth.api.getToken({ headers });
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "JWT token not found",
+      });
+    }
+
+    res.cookie("studiospace_jwt", token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      maxAge: 60 * 1000,
+      path: "/",
+    });
+
+    res.set("Cache-Control", "no-store");
+
+    return res.status(200).json({
+      success: true,
+      message: "JWT cookie created",
+    });
+  } catch (error) {
+    console.error("JWT Cookie Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to create JWT cookie",
+    });
+  }
+});
 app.use(express.json());
+app.all("/api/auth/{*any}", toNodeHandler(auth));
 
 app.get("/", (req, res) => {
   res.send("StudioSpace Server is Running!");
