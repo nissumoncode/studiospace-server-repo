@@ -22,17 +22,34 @@ export const createAuth = (db) =>
       minPasswordLength: 8,
       autoSignIn: false,
     },
+
+    session: {
+      expiresIn: 60 * 60 * 24 * 7,
+    },
+
     account: {
       accountLinking: {
         enabled: true,
         trustedProviders: ["google"],
       },
     },
+
     advanced: {
       defaultCookieAttributes: {
+        httpOnly: true,
         sameSite: "none",
         secure: true,
       },
     },
-    plugins: [jwt()],
+
+    plugins: [
+      jwt({
+        jwt: {
+          definePayload: ({ user }) => ({
+            id: user.id,
+          }),
+          expirationTime: "60s",
+        },
+      }),
+    ],
   });
