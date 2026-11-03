@@ -176,6 +176,134 @@ app.get("/api/my-studios", async (req, res) => {
   }
 });
 
+app.put("/api/my-studios/:id", async (req, res) => {
+  try {
+    const session = await auth.api.getSession({
+      headers: fromNodeHeaders(req.headers),
+    });
+
+    if (!session) {
+      return res.status(401).send({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const { id } = req.params;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({
+        success: false,
+        message: "Invalid studio ID",
+      });
+    }
+
+    const {
+      title,
+      category,
+      hourlyRate,
+      dailyRate,
+      monthlyRate,
+      yearlyRate,
+      securityDeposit,
+      capacity,
+      location,
+      address,
+      image,
+      amenities,
+      overview,
+    } = req.body;
+
+    const result = await studiosCollection.updateOne(
+      {
+        _id: new ObjectId(id),
+        hostEmail: session.user.email,
+      },
+      {
+        $set: {
+          title,
+          category,
+          hourlyRate,
+          dailyRate,
+          monthlyRate,
+          yearlyRate,
+          securityDeposit,
+          capacity,
+          location,
+          address,
+          image,
+          amenities,
+          overview,
+          updatedAt: new Date(),
+        },
+      },
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).send({
+        success: false,
+        message: "Studio not found",
+      });
+    }
+
+    res.status(200).send({
+      success: true,
+      message: "Studio updated successfully",
+    });
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Failed to update studio",
+    });
+  }
+});
+
+app.get("/api/my-studios/:id", async (req, res) => {
+  try {
+    const session = await auth.api.getSession({
+      headers: fromNodeHeaders(req.headers),
+    });
+
+    if (!session) {
+      return res.status(401).send({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const { id } = req.params;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({
+        success: false,
+        message: "Invalid studio ID",
+      });
+    }
+
+    const studio = await studiosCollection.findOne({
+      _id: new ObjectId(id),
+      hostEmail: session.user.email,
+    });
+
+    if (!studio) {
+      return res.status(404).send({
+        success: false,
+        message: "Studio not found",
+      });
+    }
+
+    res.status(200).send({
+      success: true,
+      data: studio,
+    });
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Failed to fetch your studio",
+    });
+  }
+});
+
 app.get("/api/studios/featured", async (req, res) => {
   try {
     const featuredStudios = await studiosCollection
@@ -200,7 +328,10 @@ app.get("/api/studios/:id", async (req, res) => {
         message: "Invalid studio ID",
       });
     }
-    const studio = await studiosCollection.findOne({ _id: new ObjectId(id) });
+    const studio = await studiosCollection.findOne({
+      _id: new ObjectId(id),
+      status: "active",
+    });
     if (!studio) {
       return res
         .status(404)
@@ -353,7 +484,49 @@ app.delete("/api/studios/:id", verifyJwtCookie, async (req, res) => {
   }
 });
 
-app.put("/api/studios/:id", async (req, res) => {
+app.patch("/api/studios/:id/status", verifyJwtCookie, async (req, res) => {
+  try {
+    const session = await auth.api.getSession({
+      headers: fromNodeHeaders(req.headers),
+    });
+
+    if (!session) {
+      return res.status(401).send({ message: "Unauthorized" });
+    }
+
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({ message: "Invalid studio ID" });
+    }
+
+    if (!["active", "inactive"].includes(status)) {
+      return res.status(400).send({ message: "Invalid status" });
+    }
+
+    const result = await studiosCollection.updateOne(
+      {
+        _id: new ObjectId(id),
+        hostEmail: session.user.email,
+      },
+      {
+        $set: { status, updatedAt: new Date() },
+      },
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).send({ message: "Studio not found" });
+    }
+
+    res.send({ success: true, message: `Studio ${status} successfully` });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: "Failed to update studio status" });
+  }
+});
+
+app.put("/api/studios/:id", verifyJwtCookie, async (req, res) => {
   try {
     const session = await auth.api.getSession({
       headers: fromNodeHeaders(req.headers),
@@ -435,16 +608,31 @@ app.get("/api/my-bookings", async (req, res) => {
     }
 
     const bookings = await bookingsCollection
-      .find({
-        userEmail: session.user.email,
-        status: { $ne: "Cancelled" },
-      })
+      .find({ userEmail: session.user.email })
       .sort({ createdAt: -1 })
       .toArray();
 
+    const studioIds = bookings
+      .map((booking) => booking.studioId?.toString())
+      .filter((id) => ObjectId.isValid(id))
+      .map((id) => new ObjectId(id));
+
+    const studios = await studiosCollection
+      .find({ _id: { $in: studioIds } })
+      .toArray();
+
+    const studioMap = new Map(
+      studios.map((studio) => [studio._id.toString(), studio]),
+    );
+
+    const bookingsWithStudio = bookings.map((booking) => ({
+      ...booking,
+      studio: studioMap.get(booking.studioId?.toString()) || null,
+    }));
+
     res.status(200).send({
       success: true,
-      data: bookings,
+      data: bookingsWithStudio,
     });
   } catch (error) {
     console.error("Fetch bookings error:", error);
@@ -649,6 +837,54 @@ app.post("/api/bookings", verifyJwtCookie, async (req, res) => {
     res.status(500).send({
       success: false,
       message: "Failed to create booking",
+    });
+  }
+});
+
+app.delete("/api/bookings/:id", verifyJwtCookie, async (req, res) => {
+  try {
+    const session = await auth.api.getSession({
+      headers: fromNodeHeaders(req.headers),
+    });
+
+    if (!session) {
+      return res.status(401).send({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const { id } = req.params;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({
+        success: false,
+        message: "Invalid booking ID",
+      });
+    }
+
+    const result = await bookingsCollection.deleteOne({
+      _id: new ObjectId(id),
+      userEmail: session.user.email,
+    });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).send({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    res.status(200).send({
+      success: true,
+      message: "Booking deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete booking error:", error);
+
+    res.status(500).send({
+      success: false,
+      message: "Failed to delete booking",
     });
   }
 });
