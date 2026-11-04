@@ -304,21 +304,6 @@ app.get("/api/my-studios/:id", async (req, res) => {
   }
 });
 
-app.get("/api/studios/featured", async (req, res) => {
-  try {
-    const featuredStudios = await studiosCollection
-      .find({ status: "active" })
-      .sort({ rating: -1, createdAt: -1 })
-      .limit(6)
-      .toArray();
-    res.status(200).send({ success: true, data: featuredStudios });
-  } catch (error) {
-    res
-      .status(500)
-      .send({ success: false, message: "Failed to fetch featured studios" });
-  }
-});
-
 app.get("/api/studios/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -340,6 +325,21 @@ app.get("/api/studios/:id", async (req, res) => {
     res.status(200).send({ success: true, data: studio });
   } catch (error) {
     res.status(500).send({ success: false, message: "Failed to fetch studio" });
+  }
+});
+
+app.get("/api/studios/featured", async (req, res) => {
+  try {
+    const featuredStudios = await studiosCollection
+      .find({ status: "active" })
+      .sort({ rating: -1, createdAt: -1 })
+      .limit(6)
+      .toArray();
+    res.status(200).send({ success: true, data: featuredStudios });
+  } catch (error) {
+    res
+      .status(500)
+      .send({ success: false, message: "Failed to fetch featured studios" });
   }
 });
 
@@ -646,11 +646,6 @@ app.get("/api/my-bookings", async (req, res) => {
 
 app.post("/api/bookings", verifyJwtCookie, async (req, res) => {
   try {
-    console.log(
-      "Booking cookies:",
-      req.headers.cookie?.split(";").map((c) => c.trim().split("=")[0]),
-    );
-
     const session = await auth.api.getSession({
       headers: fromNodeHeaders(req.headers),
     });
@@ -667,7 +662,8 @@ app.post("/api/bookings", verifyJwtCookie, async (req, res) => {
 
     if (
       !ObjectId.isValid(studioId) ||
-      !bookingDate ||
+      typeof bookingDate !== "string" ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(bookingDate) ||
       !/^\d{2}:\d{2}$/.test(startTime || "") ||
       !validTypes.includes(bookingType) ||
       !Number.isInteger(Number(duration)) ||
@@ -684,18 +680,55 @@ app.post("/api/bookings", verifyJwtCookie, async (req, res) => {
     const [year, month, day] = bookingDate.split("-").map(Number);
     const [hour, minute] = startTime.split(":").map(Number);
 
-    const startAt = new Date(Date.UTC(year, month - 1, day, hour, minute));
+    // Validate the selected Dhaka date and time
+    const localDateTime = new Date(
+      Date.UTC(year, month - 1, day, hour, minute),
+    );
 
     if (
-      startAt.getUTCFullYear() !== year ||
-      startAt.getUTCMonth() !== month - 1 ||
-      startAt.getUTCDate() !== day ||
+      localDateTime.getUTCFullYear() !== year ||
+      localDateTime.getUTCMonth() !== month - 1 ||
+      localDateTime.getUTCDate() !== day ||
       hour > 23 ||
       minute > 59
     ) {
       return res.status(400).send({
         success: false,
         message: "Invalid booking date or time",
+      });
+    }
+
+    // Convert Bangladesh time (UTC+6) to UTC
+    const startAt = new Date(Date.UTC(year, month - 1, day, hour - 6, minute));
+
+    console.log("Booking time check:", {
+      bookingDate,
+      startTime,
+      startAt: startAt.toISOString(),
+    });
+    const dhakaNow = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Dhaka",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(new Date());
+
+    const getPart = (type) =>
+      dhakaNow.find((part) => part.type === type)?.value;
+
+    const todayDhaka = `${getPart("year")}-${getPart("month")}-${getPart("day")}`;
+    const currentTimeDhaka = `${getPart("hour")}:${getPart("minute")}`;
+
+    if (
+      bookingDate < todayDhaka ||
+      (bookingDate === todayDhaka && startTime <= currentTimeDhaka)
+    ) {
+      return res.status(400).send({
+        success: false,
+        message: "Booking date and time must be in the future",
       });
     }
 
@@ -769,13 +802,8 @@ app.post("/api/bookings", verifyJwtCookie, async (req, res) => {
       .toArray();
 
     const hasConflict = activeBookings.some((booking) => {
-      const existingStart = booking.startAt
-        ? new Date(booking.startAt)
-        : new Date(`${booking.bookingDate}T${booking.startTime}:00Z`);
-
-      const existingEnd = booking.endAt
-        ? new Date(booking.endAt)
-        : new Date(`${booking.bookingDate}T${booking.endTime}:00Z`);
+      const existingStart = new Date(booking.startAt);
+      const existingEnd = new Date(booking.endAt);
 
       return startAt < existingEnd && endAt > existingStart;
     });
@@ -794,14 +822,21 @@ app.post("/api/bookings", verifyJwtCookie, async (req, res) => {
       yearly: studio.yearlyRate,
     }[bookingType];
 
-    if (!Number.isFinite(Number(rate)) || Number(rate) < 0) {
+    if (rate == null || !Number.isFinite(Number(rate)) || Number(rate) < 0) {
       return res.status(400).send({
         success: false,
         message: "Invalid studio rate",
       });
     }
 
-    const securityDeposit = Number(studio.securityDeposit) || 0;
+    const securityDeposit = Number(studio.securityDeposit ?? 0);
+
+    if (!Number.isFinite(securityDeposit) || securityDeposit < 0) {
+      return res.status(400).send({
+        success: false,
+        message: "Invalid security deposit",
+      });
+    }
     const totalPrice = amount * Number(rate) + securityDeposit;
 
     const newBooking = {
@@ -809,8 +844,8 @@ app.post("/api/bookings", verifyJwtCookie, async (req, res) => {
       studioTitle: studio.title,
       bookingDate,
       startTime,
-      endAt,
       startAt,
+      endAt,
       bookingType,
       duration: amount,
       rate: Number(rate),
