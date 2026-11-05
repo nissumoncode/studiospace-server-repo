@@ -25,7 +25,8 @@ export async function connectToMongoDB() {
     console.log("You successfully connected to MongoDB!");
     return client;
   } catch (err) {
-    console.dir(err);
+    console.error("MongoDB connection failed:", err);
+    throw err;
   }
 }
 
@@ -176,7 +177,7 @@ app.get("/api/my-studios", async (req, res) => {
   }
 });
 
-app.put("/api/my-studios/:id", async (req, res) => {
+app.put("/api/my-studios/:id", verifyJwtCookie, async (req, res) => {
   try {
     const session = await auth.api.getSession({
       headers: fromNodeHeaders(req.headers),
@@ -213,7 +214,33 @@ app.put("/api/my-studios/:id", async (req, res) => {
       amenities,
       overview,
     } = req.body;
+    const numericValues = [
+      hourlyRate,
+      dailyRate,
+      monthlyRate,
+      yearlyRate,
+      securityDeposit,
+      capacity,
+    ];
 
+    const hasInvalidNumber = numericValues.some(
+      (value) =>
+        value == null ||
+        (typeof value === "string" && value.trim() === "") ||
+        !Number.isFinite(Number(value)) ||
+        Number(value) < 0,
+    );
+
+    if (
+      hasInvalidNumber ||
+      !Number.isInteger(Number(capacity)) ||
+      Number(capacity) < 1
+    ) {
+      return res.status(400).send({
+        success: false,
+        message: "Invalid numeric values",
+      });
+    }
     const result = await studiosCollection.updateOne(
       {
         _id: new ObjectId(id),
@@ -223,12 +250,12 @@ app.put("/api/my-studios/:id", async (req, res) => {
         $set: {
           title,
           category,
-          hourlyRate,
-          dailyRate,
-          monthlyRate,
-          yearlyRate,
-          securityDeposit,
-          capacity,
+          hourlyRate: Number(hourlyRate),
+          dailyRate: Number(dailyRate),
+          monthlyRate: Number(monthlyRate),
+          yearlyRate: Number(yearlyRate),
+          securityDeposit: Number(securityDeposit),
+          capacity: Number(capacity),
           location,
           address,
           image,
@@ -304,6 +331,21 @@ app.get("/api/my-studios/:id", async (req, res) => {
   }
 });
 
+app.get("/api/studios/featured", async (req, res) => {
+  try {
+    const featuredStudios = await studiosCollection
+      .find({ status: "active" })
+      .sort({ rating: -1, createdAt: -1 })
+      .limit(6)
+      .toArray();
+    res.status(200).send({ success: true, data: featuredStudios });
+  } catch (error) {
+    res
+      .status(500)
+      .send({ success: false, message: "Failed to fetch featured studios" });
+  }
+});
+
 app.get("/api/studios/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -325,21 +367,6 @@ app.get("/api/studios/:id", async (req, res) => {
     res.status(200).send({ success: true, data: studio });
   } catch (error) {
     res.status(500).send({ success: false, message: "Failed to fetch studio" });
-  }
-});
-
-app.get("/api/studios/featured", async (req, res) => {
-  try {
-    const featuredStudios = await studiosCollection
-      .find({ status: "active" })
-      .sort({ rating: -1, createdAt: -1 })
-      .limit(6)
-      .toArray();
-    res.status(200).send({ success: true, data: featuredStudios });
-  } catch (error) {
-    res
-      .status(500)
-      .send({ success: false, message: "Failed to fetch featured studios" });
   }
 });
 
@@ -374,15 +401,29 @@ app.post("/api/studios", verifyJwtCookie, async (req, res) => {
       overview,
     } = req.body;
 
+    const numericValues = [
+      hourlyRate,
+      dailyRate,
+      monthlyRate,
+      yearlyRate,
+      securityDeposit,
+      capacity,
+    ];
+
+    const hasInvalidNumber = numericValues.some(
+      (value) =>
+        value == null ||
+        value === "" ||
+        !Number.isFinite(Number(value)) ||
+        Number(value) < 0,
+    );
+
     if (
       !title ||
       !category ||
-      !hourlyRate ||
-      !dailyRate ||
-      !monthlyRate ||
-      !yearlyRate ||
-      securityDeposit == null ||
-      !capacity ||
+      hasInvalidNumber ||
+      !Number.isInteger(Number(capacity)) ||
+      Number(capacity) < 1 ||
       !location ||
       !address ||
       !image ||
@@ -558,6 +599,69 @@ app.put("/api/studios/:id", verifyJwtCookie, async (req, res) => {
       overview,
     } = req.body;
 
+    // Required text fields validation
+    const textFields = {
+      title,
+      category,
+      location,
+      address,
+      image,
+      overview,
+    };
+
+    for (const [field, value] of Object.entries(textFields)) {
+      if (typeof value !== "string" || !value.trim()) {
+        return res.status(400).send({
+          message: `${field} is required`,
+        });
+      }
+    }
+
+    // Numeric fields validation
+    const numericFields = {
+      hourlyRate,
+      dailyRate,
+      monthlyRate,
+      yearlyRate,
+      securityDeposit,
+      capacity,
+    };
+
+    const numbers = {};
+
+    for (const [field, value] of Object.entries(numericFields)) {
+      if (value === "" || value === null || value === undefined) {
+        return res.status(400).send({
+          message: `${field} is required`,
+        });
+      }
+
+      const number = Number(value);
+
+      if (!Number.isFinite(number) || number < 0) {
+        return res.status(400).send({
+          message: `Invalid ${field}`,
+        });
+      }
+
+      numbers[field] = number;
+    }
+
+    if (!Number.isInteger(numbers.capacity) || numbers.capacity < 1) {
+      return res.status(400).send({
+        message: "Capacity must be a positive integer",
+      });
+    }
+
+    if (
+      !Array.isArray(amenities) ||
+      !amenities.every((item) => typeof item === "string")
+    ) {
+      return res.status(400).send({
+        message: "Amenities must be an array of strings",
+      });
+    }
+
     const result = await studiosCollection.updateOne(
       {
         _id: new ObjectId(id),
@@ -565,19 +669,14 @@ app.put("/api/studios/:id", verifyJwtCookie, async (req, res) => {
       },
       {
         $set: {
-          title,
-          category,
-          hourlyRate: Number(hourlyRate),
-          dailyRate: Number(dailyRate),
-          monthlyRate: Number(monthlyRate),
-          yearlyRate: Number(yearlyRate),
-          securityDeposit: Number(securityDeposit),
-          capacity: Number(capacity),
-          location,
-          address,
-          image,
+          title: title.trim(),
+          category: category.trim(),
+          ...numbers,
+          location: location.trim(),
+          address: address.trim(),
+          image: image.trim(),
           amenities,
-          overview,
+          overview: overview.trim(),
           updatedAt: new Date(),
         },
       },
@@ -587,10 +686,15 @@ app.put("/api/studios/:id", verifyJwtCookie, async (req, res) => {
       return res.status(404).send({ message: "Studio not found" });
     }
 
-    res.send({ success: true, message: "Studio updated successfully" });
+    return res.send({
+      success: true,
+      message: "Studio updated successfully",
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).send({ message: "Failed to update studio" });
+    return res.status(500).send({
+      message: "Failed to update studio",
+    });
   }
 });
 
@@ -924,7 +1028,7 @@ app.delete("/api/bookings/:id", verifyJwtCookie, async (req, res) => {
   }
 });
 
-app.patch("/api/bookings/:id/cancel", async (req, res) => {
+app.patch("/api/bookings/:id/cancel", verifyJwtCookie, async (req, res) => {
   try {
     const session = await auth.api.getSession({
       headers: fromNodeHeaders(req.headers),
